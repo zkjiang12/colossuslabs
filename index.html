@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colossus Labs | Perfectly Simulate Reality</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --text: #e5e5e5;
+            --muted: #707070;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 620px;
+            margin: 0 auto;
+            padding: 15vh 2rem 8vh;
+        }
+
+        .logo {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: #6b6b6b;
+            margin-bottom: 4vh;
+        }
+
+        .mission {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-size: clamp(2rem, 6vw, 3.2rem);
+            font-weight: 500;
+            font-style: italic;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 7vh;
+            color: #fff;
+        }
+
+        .content {
+            display: grid;
+            gap: 1.5rem;
+            font-size: 0.92rem;
+            line-height: 1.8;
+            font-weight: 300;
+            color: #a8a8a8;
+        }
+
+        .cta {
+            margin-top: 4vh;
+            padding-top: 3vh;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.92rem;
+            font-weight: 400;
+            color: var(--text);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10vh 1.5rem 6vh;
+            }
+            .content {
+                font-size: 0.88rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="simulation"></canvas>
+    
+    <div class="container">
+        <div class="logo">Colossus Labs</div>
+        
+        <h1 class="mission">Perfectly Simulate Reality.</h1>
+        
+        <div class="content">
+            <p>Humanity is on the precipice of an AI-accelerated future of abundance, only slowed by the incessant collisions between the pliable digital world and the unrelenting physical one.</p>
+            
+            <p>Colossus is building the perfect simulation of reality, physically accurate from atoms to human behavior. At a molecular level, this can accelerate the eradication of disease by rapidly closing the loop with AI scientists. A world model of manual labor imbues robots with the reasoning and spatial awareness needed for mass deployment and uncapped productivity.</p>
+            
+            <p>Our name, Colossus, reflects our intentions: to accumulate world-scale data and train country-sized models.</p>
+            
+            <p>We sit unconfined in the silos of research. Our team combines operations experts with deep ties in manufacturing, pharmaceuticals, agriculture, etc, with top researchers, scientists, and engineers who have pioneered advances in their respective fields.</p>
+        </div>
+
+        <div class="cta">Join us in building humanity's future of abundance.</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulation');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height, particles;
+        const particleCount = 220;
+        const connectionDistance = 90;
+        const mouseRadius = 180;
+        let mouse = { x: null, y: null };
+        
+        let trails = [];
+        const maxTrails = 12;
+        let lastMousePos = { x: null, y: null };
+        let frameCount = 0;
+        
+        // Auto-trigger system - random pulses
+        let lastInteraction = 0;
+        const autoTriggerDelay = 2500;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let autoPulses = [];
+        
+        // Cluster detection
+        const clusterCheckInterval = 30;
+        const clusterThreshold = 12; // particles within radius to trigger boom
+        const clusterRadius = 50;
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            particles = [];
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    radius: Math.random() * 0.9 + 0.3,
+                    opacity: Math.random() * 0.4 + 0.2,
+                    heat: 0
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            frameCount++;
+            
+            // Auto-trigger random pulses when no mouse activity
+            const now = Date.now();
+            const noRecentInteraction = (now - lastInteraction) > autoTriggerDelay;
+            
+            if ((noRecentInteraction || isMobile) && !mouse.x) {
+                // Spawn new pulse randomly - less frequently
+                if (frameCount % 90 === 0 || (isMobile && frameCount % 70 === 0)) {
+                    autoPulses.push({
+                        x: width * 0.1 + Math.random() * width * 0.8,
+                        y: height * 0.1 + Math.random() * height * 0.8,
+                        life: 1,
+                        radius: mouseRadius * (1.0 + Math.random() * 0.5)
+                    });
+                }
+            }
+            
+            // Decay auto pulses - slower decay for more visibility
+            autoPulses = autoPulses.filter(p => {
+                p.life -= 0.008;
+                return p.life > 0;
+            });
+            
+            // Cluster detection - check periodically for performance
+            if (frameCount % clusterCheckInterval === 0) {
+                for (let i = 0; i < particles.length; i += 5) { // Sample every 5th particle
+                    const p = particles[i];
+                    let nearbyCount = 0;
+                    
+                    for (let j = 0; j < particles.length; j++) {
+                        if (i === j) continue;
+                        const dx = p.x - particles[j].x;
+                        const dy = p.y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < clusterRadius) {
+                            nearbyCount++;
+                        }
+                    }
+                    
+                    // Boom! Explode the cluster
+                    if (nearbyCount >= clusterThreshold) {
+                        particles.forEach(p2 => {
+                            const dx = p2.x - p.x;
+                            const dy = p2.y - p.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < clusterRadius * 2 && dist > 0) {
+                                const force = (clusterRadius * 2 - dist) / (clusterRadius * 2);
+                                p2.vx += (dx / dist) * force * 3;
+                                p2.vy += (dy / dist) * force * 3;
+                                p2.heat = Math.min(1, p2.heat + force * 0.5);
+                            }
+                        });
+                        break; // One boom per check
+                    }
+                }
+            }
+            
+            // Use mouse position for trails
+            const activeX = mouse.x;
+            const activeY = mouse.y;
+            
+            if (activeX && activeY && frameCount % 4 === 0) {
+                if (lastMousePos.x !== null) {
+                    const dx = activeX - lastMousePos.x;
+                    const dy = activeY - lastMousePos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 20) {
+                        trails.push({
+                            x: lastMousePos.x,
+                            y: lastMousePos.y,
+                            life: 1,
+                            radius: mouseRadius * 0.6
+                        });
+                        if (trails.length > maxTrails) trails.shift();
+                    }
+                }
+                lastMousePos.x = activeX;
+                lastMousePos.y = activeY;
+            }
+            
+            trails = trails.filter(t => {
+                t.life -= 0.025;
+                t.radius *= 0.98;
+                return t.life > 0;
+            });
+            
+            particles.forEach((p, i) => {
+                // Mouse interaction
+                if (mouse.x && mouse.y) {
+                    const dx = mouse.x - p.x;
+                    const dy = mouse.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < mouseRadius && dist > 0) {
+                        const force = (mouseRadius - dist) / mouseRadius;
+                        p.vx += (dx / dist) * force * 0.12;
+                        p.vy += (dy / dist) * force * 0.12;
+                        p.heat = Math.min(1, p.heat + force * 0.3);
+                    }
+                }
+                
+                // Auto pulse interaction - gentler effect, doesn't disturb reading
+                autoPulses.forEach(pulse => {
+                    const dx = pulse.x - p.x;
+                    const dy = pulse.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < pulse.radius && dist > 0) {
+                        const force = ((pulse.radius - dist) / pulse.radius) * pulse.life;
+                        p.vx += (dx / dist) * force * 0.025;
+                        p.vy += (dy / dist) * force * 0.025;
+                        p.heat = Math.min(1, p.heat + force * 0.25);
+                    }
+                });
+                
+                trails.forEach(t => {
+                    const dx = t.x - p.x;
+                    const dy = t.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < t.radius && dist > 0) {
+                        const force = ((t.radius - dist) / t.radius) * t.life * 0.3;
+                        p.vx += (dx / dist) * force * 0.05;
+                        p.vy += (dy / dist) * force * 0.05;
+                        p.heat = Math.min(1, p.heat + force * 0.1);
+                    }
+                });
+                
+                p.heat *= 0.93;
+
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+                
+                p.vx *= 0.97;
+                p.vy *= 0.97;
+                
+                p.vx += (Math.random() - 0.5) * 0.06;
+                p.vy += (Math.random() - 0.5) * 0.06;
+                
+                const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                if (speed > 3.5) {
+                    p.vx = (p.vx / speed) * 3.5;
+                    p.vy = (p.vy / speed) * 3.5;
+                }
+                
+                // Brighter, more orange tones
+                const hue = 20 + p.heat * 15;
+                const sat = 40 + p.heat * 50;
+                const light = 70 + p.heat * 25;
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius + p.heat * 0.5, 0, Math.PI * 2);
+                
+                if (p.heat > 0.06) {
+                    ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${p.opacity + p.heat * 0.4})`;
+                    ctx.shadowColor = `hsla(${hue}, 90%, 60%, ${p.heat * 0.6})`;
+                    ctx.shadowBlur = p.heat * 10;
+                } else {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+                    ctx.shadowBlur = 0;
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < connectionDistance) {
+                        const baseOpacity = (1 - dist / connectionDistance) * 0.12;
+                        const heatBoost = (p.heat + p2.heat) / 2;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        
+                        if (heatBoost > 0.06) {
+                            const lineHue = 20 + heatBoost * 15;
+                            ctx.strokeStyle = `hsla(${lineHue}, ${50 + heatBoost * 40}%, 65%, ${baseOpacity + heatBoost * 0.2})`;
+                        } else {
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${baseOpacity})`;
+                        }
+                        ctx.lineWidth = 0.25 + heatBoost * 0.2;
+                        ctx.stroke();
+                    }
+                }
+            });
+            
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            lastInteraction = Date.now();
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = null;
+            mouse.y = null;
+            lastMousePos.x = null;
+            lastMousePos.y = null;
+        });
+        window.addEventListener('touchstart', () => {
+            lastInteraction = Date.now();
+        });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
